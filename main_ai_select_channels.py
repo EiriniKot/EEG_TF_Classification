@@ -1,8 +1,9 @@
 import json
 import numpy as np
+from scipy.fft import fft, ifft
 
 from src.utils import get_full_sample_paths, load_numpy, get_stratified_split
-from src.preprocessing import apply_scaling_per_channel
+from src.preprocessing import apply_scaling_per_channel, butter_bandpass_filter
 
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -19,19 +20,26 @@ data_directory = 'data'
 lowcut = 0.5
 highcut = 50.0
 
+channels = ['Iz','Fp1', 'AF7', 'AF3', 'F1', 'F3', 'F5',
+            'F7', 'FT7', 'FC5', 'FC3', 'FC1', 'C1',
+            'C3', 'C5', 'T7', 'TP7', 'CP5', 'CP3',
+            'CP1', 'P1', 'P3', 'P5', 'P7', 'P9', 'PO7',
+            'PO3', 'O1', 'Oz', 'POz', 'Pz', 'CPz', 'Fpz',
+            'Fp2', 'AF8', 'AF4', 'AFz', 'Fz', 'F2', 'F4', 'F6',
+            'F8', 'FT8', 'FC6', 'FC4', 'FC2', 'FCz', 'Cz',
+            'C2', 'C4', 'C6','T8', 'TP8', 'CP6', 'CP4', 'CP2',
+            'P2', 'P4', 'P6', 'P8', 'P10', 'PO8', 'PO4']
+
+indexes = []
+keep = ['C3', 'Cz', 'C2', 'FC2']
+for i in keep:
+    indexes.append(channels.index(i))
+
 if __name__ == '__main__':
     # Tuples with path and label index
     full_paths = get_full_sample_paths(data_directory)
     X, y = load_numpy(full_paths, label_index_info)
-    #
-    # for idx, i in enumerate(X):
-    #     X[idx] = np.apply_along_axis(fft, 0, i)
-    # print(X.shape)
-    # X = butter_bandpass_filter(X, lowcut, highcut, fs=359. / 0.7, order=7)
-    #
-    # for idx, i in enumerate(X):
-    #     X[idx] = np.apply_along_axis(ifft, 0, i)
-
+    X = X[:,indexes,:]
     dict_sets = get_stratified_split(X, y, 4,
                                      train_size=0.89,
                                      val_size=0.01,
@@ -52,9 +60,9 @@ if __name__ == '__main__':
     feature = 'mean'
 
     if feature=='mean':
-        dict_sets['train'][0] = np.mean(dict_sets['train'][0], 2)
-        dict_sets['val'][0] = np.mean(dict_sets['val'][0], 2)
-        dict_sets['test'][0] = np.mean(dict_sets['test'][0], 2)
+        dict_sets['train'][0] = np.mean(dict_sets['train'][0], 1)
+        dict_sets['val'][0] = np.mean(dict_sets['val'][0], 1)
+        dict_sets['test'][0] = np.mean(dict_sets['test'][0], 1)
     elif feature=='max':
         dict_sets['train'][0] = np.max(dict_sets['train'][0], 1)
         dict_sets['val'][0] = np.max(dict_sets['val'][0], 1)
@@ -92,7 +100,7 @@ if __name__ == '__main__':
     #     axs[2, 2].set_title(y[i + 8])
     #     plt.show()
     #     fff
-    rf_clf = RandomForestClassifier(max_depth=8, random_state=0)
+    rf_clf = RandomForestClassifier(max_depth=11, random_state=0)
     rf_clf.fit(dict_sets['train'][0], dict_sets['train'][1])
     out = rf_clf.score(dict_sets['test'][0], dict_sets['test'][1].astype(np.int32))
 
